@@ -1,4 +1,4 @@
-const API_BASE_URL = 'http://localhost:5000/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://mvrtechies.onrender.com/api';
 
 // Helper for HTTP requests
 const request = async (endpoint, options = {}) => {
@@ -13,10 +13,26 @@ const request = async (endpoint, options = {}) => {
 
   try {
     const response = await fetch(url, { ...options, headers });
-    const data = await response.json();
+    const contentType = response.headers.get('content-type') || '';
+
+    let data;
+    if (contentType.includes('application/json')) {
+      data = await response.json();
+    } else {
+      const text = await response.text();
+      // If server returned an HTML error page (e.g. Render waking up, 502/503/404)
+      if (!response.ok) {
+        throw new Error(
+          response.status === 404
+            ? `API route not found on server (HTTP 404). Please ensure backend is running.`
+            : `Backend server error (${response.status}). The service might be starting up on Render.`
+        );
+      }
+      data = { text };
+    }
 
     if (!response.ok) {
-      throw new Error(data.message || `Request failed with status ${response.status}`);
+      throw new Error(data?.message || `Request failed with status ${response.status}`);
     }
     return data;
   } catch (error) {
@@ -52,6 +68,30 @@ export const apiRegister = (userData) =>
   request('/auth/register', {
     method: 'POST',
     body: JSON.stringify(userData)
+  });
+
+export const apiGenerateSignupOtp = (userData) =>
+  request('/auth/generate-signup-otp', {
+    method: 'POST',
+    body: JSON.stringify(userData)
+  });
+
+export const apiVerifySignupOtp = (email, otp) =>
+  request('/auth/verify-signup-otp', {
+    method: 'POST',
+    body: JSON.stringify({ email, otp })
+  });
+
+export const apiForgotPasswordOtp = (emailOrPhone) =>
+  request('/auth/forgot-password-otp', {
+    method: 'POST',
+    body: JSON.stringify({ emailOrPhone })
+  });
+
+export const apiResetPasswordOtp = (email, otp, newPassword) =>
+  request('/auth/reset-password-otp', {
+    method: 'POST',
+    body: JSON.stringify({ email, otp, newPassword })
   });
 
 export const apiLogin = (emailOrPhone, password) =>

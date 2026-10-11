@@ -25,47 +25,125 @@ const BLANK_PRODUCT = { name: '', category: 'Fresh Produce', unit: 'kg', price: 
 
 // All images available in /public/images/
 const AVAILABLE_IMAGES = [
-  '/images/asparagus.jpeg', '/images/Basil.jpeg', '/images/beans.webp',
-  '/images/brinjal.jpg', '/images/Broccoli.jpeg', '/images/Brussels sprouts.jpeg',
-  '/images/Cabbage.jpg', '/images/capsium.jpg', '/images/Carrot Pink.webp',
-  '/images/cauliflower.jpg', '/images/coriander.webp', '/images/cucumber.jpg',
-  '/images/curry leaves.webp', '/images/drumstick.webp', '/images/gchilli.jpg',
-  '/images/ginger.jpg', '/images/karela.jpg', '/images/lady fingur.webp',
-  '/images/lemon.jpg', '/images/lotus stem.jpg', '/images/Methi Seasonal.jpg',
-  '/images/mint.webp', '/images/mushroom.webp', '/images/onion.jpg',
-  '/images/onion small.jpg', '/images/potato.jpg', '/images/potato sugar free.jpg',
-  '/images/Red lettuce.jpeg', '/images/Roman lettuce.webp',
+  '/images/asparagus.jpeg', '/images/asparagus 2.jpeg', '/images/asparagus 3.jpeg',
+  '/images/Basil.jpeg', '/images/basil 2.jpg',
+  '/images/beans.webp', '/images/beans 2.jpg',
+  '/images/brinjal.jpg', '/images/brinjal 2.jpg',
+  '/images/Broccoli.jpeg', '/images/broccoli 2.jpg', '/images/broccoli 3.avif',
+  '/images/Brussels sprouts.jpeg', '/images/Brussels sprouts 2.avif',
+  '/images/Cabbage.jpg', '/images/Cabbage 2.jpg',
+  '/images/capsium.jpg', '/images/capsium 2.jpg',
+  '/images/Carrot Pink.webp', '/images/Carrot Pink 2.jpg',
+  '/images/cauliflower.jpg', '/images/cauliflower 2.jpg',
+  '/images/coriander.webp', '/images/coriander 2.avif',
+  '/images/cucumber.jpg', '/images/cucumber 2.jpg',
+  '/images/curry leaves.webp', '/images/curry leaves 2.jpg',
+  '/images/drumstick.webp', '/images/drumstick 2.jpg',
+  '/images/gchilli.jpg', '/images/gchilli 2.avif',
+  '/images/ginger.jpg', '/images/ginger 2.jpg',
+  '/images/karela.jpg', '/images/Karela 2.webp',
+  '/images/lady fingur.webp', '/images/lady fingur 2.jpg',
+  '/images/lemon.jpg', '/images/lemon 2.webp',
+  '/images/lotus stem.jpg', '/images/lotus stem 2.jpg',
+  '/images/Methi Seasonal.jpg', '/images/Methi Seasonal.webp',
+  '/images/mint.webp', '/images/mint 2.jpg',
+  '/images/mushroom.webp', '/images/mushroom 2.jpg',
+  '/images/onion.jpg', '/images/onion 2.jpg',
+  '/images/onion small.jpg', '/images/onion small 2.jpg',
+  '/images/potato.jpg', '/images/potato 2.jpg',
+  '/images/potato sugar free.jpg', '/images/potato sugar free 2.webp',
+  '/images/Red lettuce.jpeg', '/images/Red lettuce 2.jpg',
+  '/images/Roman lettuce.webp', '/images/Roman lettuce 2.jpeg',
 ];
 
-// Reusable image picker: dropdown of existing images + custom path
-const ImagePicker = ({ value, onChange, fld }) => (
-  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-    <select
-      style={fld}
-      value={AVAILABLE_IMAGES.includes(value) ? value : ''}
-      onChange={(e) => onChange(e.target.value)}
-    >
-      <option value="">— Select existing image —</option>
-      {AVAILABLE_IMAGES.map((img) => (
-        <option key={img} value={img}>{img.replace('/images/', '')}</option>
-      ))}
-    </select>
-    <input
-      style={fld}
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      placeholder="Or type custom path: /images/myfile.jpg"
-    />
-    {value && (
-      <img
-        src={value}
-        alt="preview"
-        onError={(e) => { e.target.style.display = 'none'; }}
-        style={{ width: 80, height: 60, objectFit: 'cover', borderRadius: 6, border: '1px solid var(--border)' }}
+// Reusable image picker: file upload from device, dropdown of existing images, and URL/path
+const ImagePicker = ({ value, onChange, fld }) => {
+  const fileInputRef = React.useRef(null);
+
+  const handleFileUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      alert('Please upload a valid image file (PNG, JPG, WebP, etc.)');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      onChange(event.target.result);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      {/* File Upload Row */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          style={{ display: 'none' }}
+          onChange={handleFileUpload}
+        />
+        <button
+          type="button"
+          className="btn-secondary btn-sm"
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}
+          onClick={() => fileInputRef.current?.click()}
+        >
+          📁 Upload New Image from Device
+        </button>
+        <span style={{ fontSize: 12, color: 'var(--ink-muted)' }}>
+          (Upload from PC / gallery or pick below)
+        </span>
+      </div>
+
+      {/* Select Existing Image dropdown */}
+      <select
+        style={fld}
+        value={AVAILABLE_IMAGES.includes(value) ? value : ''}
+        onChange={(e) => onChange(e.target.value)}
+      >
+        <option value="">— Or select from library ({AVAILABLE_IMAGES.length} images) —</option>
+        {AVAILABLE_IMAGES.map((img) => (
+          <option key={img} value={img}>{img.replace('/images/', '')}</option>
+        ))}
+      </select>
+
+      {/* Custom image URL or path */}
+      <input
+        style={fld}
+        value={value && value.startsWith('data:') ? 'Image uploaded from device (base64 data)' : (value || '')}
+        onChange={(e) => onChange(e.target.value)}
+        disabled={value && value.startsWith('data:')}
+        placeholder="Or paste image URL: https://... or /images/item.jpg"
       />
-    )}
-  </div>
-);
+
+      {/* Preview with remove button */}
+      {value && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 4 }}>
+          <img
+            src={value}
+            alt="preview"
+            onError={(e) => { e.target.style.display = 'none'; }}
+            style={{ width: 80, height: 60, objectFit: 'cover', borderRadius: 6, border: '1px solid var(--border)' }}
+          />
+          <button
+            type="button"
+            className="btn-secondary btn-sm"
+            style={{ fontSize: 11, padding: '4px 8px', color: 'var(--danger)' }}
+            onClick={() => {
+              onChange('');
+              if (fileInputRef.current) fileInputRef.current.value = '';
+            }}
+          >
+            Remove Image
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};
 
 // Thumbnail: shows real image if available, emoji fallback
 const ProductThumb = ({ product, size = 48 }) => {
@@ -443,8 +521,8 @@ export const AdminDashboard = () => {
                 <div className="card-modern" style={{ padding: 24 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
                     <h3 style={{ fontSize: 17, color: 'var(--forest-deep)', margin: 0 }}>Quick price editor</h3>
-                    <button onClick={() => setActiveTab('prices')} style={{ fontSize: 12, color: 'var(--forest)', fontWeight: 700 }}>
-                      All {products.length} products
+                    <button onClick={() => setActiveTab('products')} style={{ fontSize: 12, color: 'var(--forest)', fontWeight: 700 }}>
+                      Manage all {products.length} products
                     </button>
                   </div>
                   <p style={{ fontSize: 13, color: 'var(--ink-soft)', margin: '0 0 12px' }}>Press Enter to save, Esc to cancel.</p>
@@ -812,88 +890,6 @@ export const AdminDashboard = () => {
                           </tr>
                         );
                       })}
-                    </tbody>
-                  </table>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* ================= PRICES ================= */}
-          {activeTab === 'prices' && (
-            <div>
-              <TabHeader title="Wholesale price catalog" sub="Changes apply instantly to the storefront and new orders." onBack={() => setActiveTab('overview')}>
-                <button
-                  className="btn-secondary btn-sm"
-                  style={{ display: 'flex', alignItems: 'center', gap: 6 }}
-                  onClick={() => downloadCSV('price-list.csv', filteredProducts.map((p) => ({ product: p.name, category: p.category, unit: p.unit, price: p.price })))}
-                >
-                  <Download size={14} /> Export price list
-                </button>
-              </TabHeader>
-
-              {/* toolbar: search, category, bulk adjust */}
-              <div className="card-modern" style={{ padding: 16, marginBottom: 16, display: 'flex', gap: 14, flexWrap: 'wrap', alignItems: 'center' }}>
-                <SearchBox value={priceQuery} onChange={setPriceQuery} placeholder="Search products" />
-                <select className="form-input" value={category} onChange={(e) => setCategory(e.target.value)} aria-label="Filter by category" style={{ width: 'auto' }}>
-                  {categories.map((c) => <option key={c}>{c}</option>)}
-                </select>
-                <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <Percent size={15} style={{ color: 'var(--ink-muted)' }} />
-                  <input
-                    type="number" className="form-input" value={bulkPct}
-                    onChange={(e) => setBulkPct(e.target.value)}
-                    placeholder="e.g. 5 or -3"
-                    aria-label="Bulk change percentage"
-                    style={{ width: 110, padding: '6px 8px', fontSize: 13 }}
-                  />
-                  <button onClick={applyBulk} disabled={!bulkPct} className="btn-primary btn-sm">
-                    Apply to {filteredProducts.length} shown
-                  </button>
-                </div>
-              </div>
-
-              <div className="table-responsive">
-                {filteredProducts.length === 0 ? (
-                  <Empty title="No products found" hint="Clear the search or pick another category." />
-                ) : (
-                  <table className="table-modern">
-                    <thead>
-                      <tr><th>Product</th><th>Category</th><th>Price</th><th style={{ width: 190 }}>New price</th><th style={{ width: 150 }}>Action</th></tr>
-                    </thead>
-                    <tbody>
-                      {filteredProducts.map((p) => (
-                        <tr key={p.id}>
-                          <td>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                              <span style={{ fontSize: 22 }}>{p.emoji || '🥦'}</span>
-                              <div>
-                                <div style={{ fontWeight: 700, color: 'var(--forest-deep)' }}>{p.name}</div>
-                                <span style={{ fontSize: 11, color: 'var(--ink-muted)' }}>per {p.unit}</span>
-                              </div>
-                            </div>
-                          </td>
-                          <td><Chip bg="var(--sage)" fg="var(--forest-deep)">{p.category}</Chip></td>
-                          <td style={{ fontWeight: 700, fontSize: 16, color: 'var(--forest-deep)' }}>
-                            {money(p.price)}<Delta p={p} />
-                          </td>
-                          <td>{editingPriceId === p.id ? <PriceInput p={p} /> : <span style={{ color: 'var(--ink-muted)', fontSize: 13 }}>—</span>}</td>
-                          <td>
-                            {editingPriceId === p.id ? (
-                              <div style={{ display: 'flex', gap: 6 }}>
-                                <button onClick={() => savePrice(p)} className="btn-primary btn-sm" style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'var(--success)' }}>
-                                  <Check size={14} /> Save
-                                </button>
-                                <button onClick={cancelEdit} className="btn-secondary btn-sm" aria-label="Cancel"><X size={14} /></button>
-                              </div>
-                            ) : (
-                              <button onClick={() => startEditPrice(p)} className="btn-secondary btn-sm" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                                <Edit3 size={13} /> Edit
-                              </button>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
                     </tbody>
                   </table>
                 )}

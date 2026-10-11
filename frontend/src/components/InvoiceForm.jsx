@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
-import { Plus, Trash2, Printer, CheckCircle2, FileText } from 'lucide-react';
+import { Plus, Trash2, Printer, CheckCircle2, FileText, Eye, ArrowRight } from 'lucide-react';
 
 export const InvoiceForm = ({ onCreated }) => {
   const { products, addInvoice } = useApp();
+  const navigate = useNavigate();
 
   // Generate an auto invoice number
   const [invoiceNumber] = useState(`INV-2026-${Math.floor(1000 + Math.random() * 9000)}`);
@@ -36,10 +38,12 @@ export const InvoiceForm = ({ onCreated }) => {
   const [taxRate, setTaxRate] = useState(5);
   const [shipping, setShipping] = useState(250);
   const [successMessage, setSuccessMessage] = useState(null);
+  const [createdInvoiceId, setCreatedInvoiceId] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Calculations
   const subtotal = items.reduce((sum, item) => sum + (Number(item.total) || 0), 0);
-  const taxAmount = Math.round((subtotal * (Number(taxRate) / 100)) * 100) / 100;
+  const taxAmount = Math.round((subtotal * ((parseFloat(taxRate) || 0) / 100)) * 100) / 100;
   const grandTotal = subtotal + taxAmount + (Number(shipping) || 0);
 
   const handleProductSelect = (index, prodName) => {
@@ -97,7 +101,7 @@ export const InvoiceForm = ({ onCreated }) => {
     setItems(prev => prev.filter((_, i) => i !== index));
   };
 
-  const handleGenerateInvoice = (e) => {
+  const handleGenerateInvoice = async (e) => {
     e.preventDefault();
     if (!customerName.trim()) {
       alert('Please enter a customer name.');
@@ -108,24 +112,38 @@ export const InvoiceForm = ({ onCreated }) => {
       return;
     }
 
-    const created = addInvoice({
-      invoiceNumber,
-      date: invoiceDate,
-      customerName,
-      customerPhone,
-      customerEmail,
-      customerAddress,
-      items,
-      subtotal,
-      taxRate,
-      taxAmount,
-      shipping: Number(shipping) || 0,
-      grandTotal,
-      status: 'Paid'
-    });
+    setIsSubmitting(true);
+    try {
+      const created = await addInvoice({
+        invoiceNumber,
+        date: invoiceDate,
+        customerName: customerName.trim(),
+        customerPhone: customerPhone.trim(),
+        customerEmail: customerEmail.trim(),
+        customerAddress: customerAddress.trim(),
+        items: items.map(item => ({
+          productName: item.productName,
+          quantity: parseFloat(item.quantity) || 1,
+          price: parseFloat(item.price) || 0,
+          total: parseFloat(item.total) || 0
+        })),
+        subtotal,
+        taxRate: parseFloat(taxRate) || 0,
+        taxAmount,
+        shipping: Number(shipping) || 0,
+        grandTotal,
+        status: 'Paid'
+      });
 
-    setSuccessMessage(`Invoice ${invoiceNumber} created and saved successfully!`);
-    if (onCreated) onCreated(created);
+      setSuccessMessage(`Invoice ${invoiceNumber} created and saved successfully!`);
+      setCreatedInvoiceId(created?.id || invoiceNumber);
+      if (onCreated) onCreated(created);
+    } catch (err) {
+      console.error('Invoice generation failed:', err);
+      alert('Failed to generate invoice: ' + err.message);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handlePrint = () => {
@@ -135,17 +153,24 @@ export const InvoiceForm = ({ onCreated }) => {
   return (
     <div>
       {successMessage && (
-        <div className="alert-box alert-success no-print" style={{ marginBottom: '24px' }}>
-          <CheckCircle2 size={20} />
-          <div style={{ flexGrow: 1 }}>
-            <b>Success!</b> {successMessage}
+        <div className="alert-box alert-success no-print" style={{ marginBottom: '24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <CheckCircle2 size={20} />
+            <div>
+              <b>Success!</b> {successMessage}
+            </div>
           </div>
-          <button
-            onClick={() => setSuccessMessage(null)}
-            style={{ fontWeight: '700', color: 'inherit' }}
-          >
-            ✕
-          </button>
+          <div style={{ display: 'flex', gap: 10 }}>
+            <Link to="/admin/invoices" className="btn-primary btn-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <Eye size={14} /> View All Invoices <ArrowRight size={14} />
+            </Link>
+            <button
+              onClick={() => setSuccessMessage(null)}
+              style={{ fontWeight: '700', color: 'inherit', background: 'transparent', border: 'none', cursor: 'pointer', padding: '4px 8px' }}
+            >
+              ✕
+            </button>
+          </div>
         </div>
       )}
 
@@ -282,17 +307,45 @@ export const InvoiceForm = ({ onCreated }) => {
                   />
                 </div>
                 <div>
-                  <label className="form-label" style={{ fontSize: '12px', marginBottom: '4px' }}>GST Rate (%)</label>
-                  <select
-                    className="form-select"
-                    value={taxRate}
-                    onChange={(e) => setTaxRate(Number(e.target.value))}
-                  >
-                    <option value={0}>0% (Tax Exempt)</option>
-                    <option value={5}>5% (Fresh Produce GST)</option>
-                    <option value={12}>12% (Standard)</option>
-                    <option value={18}>18% (Processed)</option>
-                  </select>
+                  <label className="form-label" style={{ fontSize: '12px', marginBottom: '4px' }}>
+                    GST Rate (% custom)
+                  </label>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <input
+                      type="number"
+                      step="0.1"
+                      min="0"
+                      max="100"
+                      className="form-input"
+                      value={taxRate}
+                      onChange={(e) => setTaxRate(e.target.value)}
+                      placeholder="e.g. 5, 12, 18 or 0"
+                      style={{ width: '100%' }}
+                    />
+                    <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--forest-deep)' }}>%</span>
+                  </div>
+                  {/* Quick preset buttons */}
+                  <div style={{ display: 'flex', gap: 4, marginTop: 4 }}>
+                    {[0, 5, 12, 18].map((pct) => (
+                      <button
+                        key={pct}
+                        type="button"
+                        onClick={() => setTaxRate(pct)}
+                        style={{
+                          fontSize: 10,
+                          padding: '2px 6px',
+                          borderRadius: 4,
+                          border: Number(taxRate) === pct ? '1px solid var(--forest)' : '1px solid var(--border)',
+                          background: Number(taxRate) === pct ? 'var(--forest-deep)' : 'var(--white)',
+                          color: Number(taxRate) === pct ? '#fff' : 'var(--ink-soft)',
+                          cursor: 'pointer',
+                          fontWeight: 600
+                        }}
+                      >
+                        {pct}%
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
               <div style={{ marginBottom: '10px' }}>
@@ -484,8 +537,10 @@ export const InvoiceForm = ({ onCreated }) => {
                 type="submit"
                 id="generate-invoice-btn"
                 className="btn-primary"
+                disabled={isSubmitting}
+                style={{ display: 'flex', alignItems: 'center', gap: 6 }}
               >
-                <FileText size={16} /> Generate Invoice
+                <FileText size={16} /> {isSubmitting ? 'Generating…' : 'Generate Invoice'}
               </button>
             </div>
           </div>

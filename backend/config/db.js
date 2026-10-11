@@ -1,21 +1,31 @@
-const mongoose = require('mongoose');
-const seedInitialData = require('./seed');
+// backend/config/db.js
+const dns = require("node:dns");
+const mongoose = require("mongoose");
+const seedInitialData = require("./seed");
+
+// Force public DNS servers so SRV lookups for mongodb+srv:// work
+dns.setServers(["8.8.8.8", "8.8.4.4", "1.1.1.1"]);
 
 const connectDB = async () => {
   try {
-    const conn = await mongoose.connect(process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/abch_traders', {
-      serverSelectionTimeoutMS: 5000
+    if (!process.env.MONGODB_URI) {
+      throw new Error("MONGODB_URI is missing from backend/.env");
+    }
+
+    const conn = await mongoose.connect(process.env.MONGODB_URI, {
+      serverSelectionTimeoutMS: 10000,
     });
-    console.log(`✅ MongoDB Connected: ${conn.connection.host}/${conn.connection.name}`);
-    
-    // Auto-seed initial data if collections are empty
+
+    console.log(
+      `MongoDB Connected: ${conn.connection.host}/${conn.connection.name}`,
+    );
+
     await seedInitialData();
 
     return conn;
   } catch (error) {
-    console.warn(`⚠️ MongoDB Connection Notice: ${error.message}`);
-    console.warn(`👉 Make sure MongoDB service is running locally on port 27017, or set MONGODB_URI in backend/.env`);
-    return null;
+    console.error("MongoDB connection failed:", error.message);
+    throw error;
   }
 };
 

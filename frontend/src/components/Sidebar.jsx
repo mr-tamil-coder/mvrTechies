@@ -150,25 +150,6 @@ export const Sidebar = ({ activeTab, setActiveTab }) => {
               <span>Contact Inquiries</span>
             </button>
 
-            <button
-              onClick={() => setActiveTab('prices')}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '12px',
-                padding: '11px 14px',
-                borderRadius: 'var(--radius-md)',
-                fontSize: '14px',
-                fontWeight: '600',
-                color: activeTab === 'prices' ? 'var(--forest-deep)' : 'var(--sage)',
-                backgroundColor: activeTab === 'prices' ? 'var(--gold-light)' : 'transparent',
-                width: '100%',
-                textAlign: 'left'
-              }}
-            >
-              <Tag size={18} />
-              <span>Edit Prices</span>
-            </button>
           </>
         ) : (
           <>
@@ -221,23 +202,6 @@ export const Sidebar = ({ activeTab, setActiveTab }) => {
             >
               <MessageSquare size={18} />
               <span>Contact Inquiries</span>
-            </Link>
-
-            <Link
-              to="/admin"
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '12px',
-                padding: '11px 14px',
-                borderRadius: 'var(--radius-md)',
-                fontSize: '14px',
-                fontWeight: '600',
-                color: 'var(--sage)'
-              }}
-            >
-              <Tag size={18} />
-              <span>Edit Prices</span>
             </Link>
           </>
         )}
