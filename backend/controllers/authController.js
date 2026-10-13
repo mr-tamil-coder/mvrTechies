@@ -1,10 +1,15 @@
-const jwt = require('jsonwebtoken');
-const User = require('../models/User');
+const jwt = require("jsonwebtoken");
+const User = require("../models/User");
+const sendOtpEmail = require("../utils/sendEmail"); // ADDED: Email utility import
 
 const generateToken = (id) => {
-  return jwt.sign({ id }, process.env.JWT_SECRET || 'abch_super_secure_jwt_secret_key_2026', {
-    expiresIn: '30d'
-  });
+  return jwt.sign(
+    { id },
+    process.env.JWT_SECRET || "abch_super_secure_jwt_secret_key_2026",
+    {
+      expiresIn: "30d",
+    },
+  );
 };
 
 // @desc    Register a new user
@@ -15,12 +20,22 @@ const register = async (req, res, next) => {
     const { name, phone, email, password, businessName, location } = req.body;
 
     if (!name || !phone || !email || !password) {
-      return res.status(400).json({ success: false, message: 'Please provide all required fields' });
+      return res
+        .status(400)
+        .json({
+          success: false,
+          message: "Please provide all required fields",
+        });
     }
 
     const existingUser = await User.findOne({ email: email.toLowerCase() });
     if (existingUser) {
-      return res.status(400).json({ success: false, message: 'User with this email already exists' });
+      return res
+        .status(400)
+        .json({
+          success: false,
+          message: "User with this email already exists",
+        });
     }
 
     const user = await User.create({
@@ -28,16 +43,16 @@ const register = async (req, res, next) => {
       phone,
       email,
       password,
-      businessName: businessName || '',
-      location: location || 'Tamil Nadu, India',
-      role: 'customer'
+      businessName: businessName || "",
+      location: location || "Tamil Nadu, India",
+      role: "customer",
     });
 
     const token = generateToken(user._id);
 
     res.status(201).json({
       success: true,
-      message: 'Registration successful',
+      message: "Registration successful",
       token,
       user: {
         id: user._id,
@@ -45,8 +60,8 @@ const register = async (req, res, next) => {
         email: user.email,
         phone: user.phone,
         businessName: user.businessName,
-        role: user.role
-      }
+        role: user.role,
+      },
     });
   } catch (error) {
     next(error);
@@ -61,31 +76,37 @@ const login = async (req, res, next) => {
     const { emailOrPhone, password } = req.body;
 
     if (!emailOrPhone || !password) {
-      return res.status(400).json({ success: false, message: 'Please provide email/phone and password' });
+      return res
+        .status(400)
+        .json({
+          success: false,
+          message: "Please provide email/phone and password",
+        });
     }
 
     // Find user by email or phone
     const user = await User.findOne({
-      $or: [
-        { email: emailOrPhone.toLowerCase() },
-        { phone: emailOrPhone }
-      ]
-    }).select('+password');
+      $or: [{ email: emailOrPhone.toLowerCase() }, { phone: emailOrPhone }],
+    }).select("+password");
 
     if (!user) {
-      return res.status(401).json({ success: false, message: 'Invalid credentials' });
+      return res
+        .status(401)
+        .json({ success: false, message: "Invalid credentials" });
     }
 
     const isMatch = await user.matchPassword(password);
     if (!isMatch) {
-      return res.status(401).json({ success: false, message: 'Invalid credentials' });
+      return res
+        .status(401)
+        .json({ success: false, message: "Invalid credentials" });
     }
 
     const token = generateToken(user._id);
 
     res.json({
       success: true,
-      message: 'Login successful',
+      message: "Login successful",
       token,
       user: {
         id: user._id,
@@ -93,8 +114,8 @@ const login = async (req, res, next) => {
         email: user.email,
         phone: user.phone,
         businessName: user.businessName,
-        role: user.role
-      }
+        role: user.role,
+      },
     });
   } catch (error) {
     next(error);
@@ -122,7 +143,7 @@ const getAllUsers = async (req, res, next) => {
     res.json({
       success: true,
       count: users.length,
-      users: users.map(u => ({
+      users: users.map((u) => ({
         id: u._id,
         name: u.name,
         phone: u.phone,
@@ -131,8 +152,10 @@ const getAllUsers = async (req, res, next) => {
         location: u.location,
         role: u.role,
         status: u.status,
-        registeredDate: u.createdAt ? u.createdAt.toISOString().split('T')[0] : '2026-10-01'
-      }))
+        registeredDate: u.createdAt
+          ? u.createdAt.toISOString().split("T")[0]
+          : "2026-10-01",
+      })),
     });
   } catch (error) {
     next(error);
@@ -144,7 +167,8 @@ const getAllUsers = async (req, res, next) => {
 const signupOtpStore = new Map();
 
 // Helper to create random 6-digit OTP
-const generate6DigitOtp = () => Math.floor(100000 + Math.random() * 900000).toString();
+const generate6DigitOtp = () =>
+  Math.floor(100000 + Math.random() * 900000).toString();
 
 // @desc    Generate OTP for new registration (checks if user already exists)
 // @route   POST /api/auth/generate-signup-otp
@@ -154,13 +178,23 @@ const generateSignupOtp = async (req, res, next) => {
     const { name, phone, email, password, businessName, location } = req.body;
 
     if (!name || !phone || !email || !password) {
-      return res.status(400).json({ success: false, message: 'Please provide all required fields' });
+      return res
+        .status(400)
+        .json({
+          success: false,
+          message: "Please provide all required fields",
+        });
     }
 
     const cleanEmail = email.trim().toLowerCase();
     const existingUser = await User.findOne({ email: cleanEmail });
     if (existingUser) {
-      return res.status(400).json({ success: false, message: 'An account with this email already exists' });
+      return res
+        .status(400)
+        .json({
+          success: false,
+          message: "An account with this email already exists",
+        });
     }
 
     const otp = generate6DigitOtp();
@@ -168,17 +202,38 @@ const generateSignupOtp = async (req, res, next) => {
 
     signupOtpStore.set(cleanEmail, {
       otp,
-      userData: { name: name.trim(), phone: phone.trim(), email: cleanEmail, password, businessName, location },
-      expiresAt
+      userData: {
+        name: name.trim(),
+        phone: phone.trim(),
+        email: cleanEmail,
+        password,
+        businessName,
+        location,
+      },
+      expiresAt,
     });
 
     console.log(`🔐 [AUTH OTP] Registration OTP for ${cleanEmail}: ${otp}`);
+
+    // SECURED: Send the email and catch any SMTP errors
+    try {
+      await sendOtpEmail(cleanEmail, otp);
+    } catch (emailError) {
+      console.error("SMTP Email Error:", emailError);
+      return res
+        .status(500)
+        .json({
+          success: false,
+          message:
+            "Failed to send OTP email. Please verify your email configuration.",
+        });
+    }
 
     res.json({
       success: true,
       message: `OTP sent successfully to ${cleanEmail}. (Valid for 10 minutes)`,
       email: cleanEmail,
-      otp // returned so user can view/test in demo or if SMTP is optional
+      // REMOVED: otp property so it does not leak to the frontend
     });
   } catch (error) {
     next(error);
@@ -193,33 +248,53 @@ const verifySignupOtp = async (req, res, next) => {
     const { email, otp } = req.body;
 
     if (!email || !otp) {
-      return res.status(400).json({ success: false, message: 'Please provide email and OTP' });
+      return res
+        .status(400)
+        .json({ success: false, message: "Please provide email and OTP" });
     }
 
     const cleanEmail = email.trim().toLowerCase();
     const record = signupOtpStore.get(cleanEmail);
 
     if (!record) {
-      return res.status(400).json({ success: false, message: 'No pending OTP verification found. Please generate a new OTP.' });
+      return res
+        .status(400)
+        .json({
+          success: false,
+          message:
+            "No pending OTP verification found. Please generate a new OTP.",
+        });
     }
 
     if (Date.now() > record.expiresAt) {
       signupOtpStore.delete(cleanEmail);
-      return res.status(400).json({ success: false, message: 'OTP has expired. Please request a new one.' });
+      return res
+        .status(400)
+        .json({
+          success: false,
+          message: "OTP has expired. Please request a new one.",
+        });
     }
 
     if (String(record.otp).trim() !== String(otp).trim()) {
-      return res.status(400).json({ success: false, message: 'Invalid OTP code. Please check and try again.' });
+      return res
+        .status(400)
+        .json({
+          success: false,
+          message: "Invalid OTP code. Please check and try again.",
+        });
     }
 
     // OTP is valid! Create real user in DB
     const { name, phone, password, businessName, location } = record.userData;
-    
+
     // Double check if already registered in meantime
     const existingUser = await User.findOne({ email: cleanEmail });
     if (existingUser) {
       signupOtpStore.delete(cleanEmail);
-      return res.status(400).json({ success: false, message: 'User already exists' });
+      return res
+        .status(400)
+        .json({ success: false, message: "User already exists" });
     }
 
     const user = await User.create({
@@ -227,10 +302,10 @@ const verifySignupOtp = async (req, res, next) => {
       phone,
       email: cleanEmail,
       password,
-      businessName: businessName || '',
-      location: location || 'Tamil Nadu, India',
-      role: 'customer',
-      isVerified: true
+      businessName: businessName || "",
+      location: location || "Tamil Nadu, India",
+      role: "customer",
+      isVerified: true,
     });
 
     signupOtpStore.delete(cleanEmail);
@@ -239,7 +314,7 @@ const verifySignupOtp = async (req, res, next) => {
 
     res.status(201).json({
       success: true,
-      message: 'Account verified and created successfully!',
+      message: "Account verified and created successfully!",
       token,
       user: {
         id: user._id,
@@ -248,8 +323,8 @@ const verifySignupOtp = async (req, res, next) => {
         phone: user.phone,
         businessName: user.businessName,
         role: user.role,
-        isVerified: true
-      }
+        isVerified: true,
+      },
     });
   } catch (error) {
     next(error);
@@ -263,19 +338,26 @@ const forgotPasswordOtp = async (req, res, next) => {
   try {
     const { emailOrPhone } = req.body;
     if (!emailOrPhone) {
-      return res.status(400).json({ success: false, message: 'Please enter your registered email or phone' });
+      return res
+        .status(400)
+        .json({
+          success: false,
+          message: "Please enter your registered email or phone",
+        });
     }
 
     const cleanInput = emailOrPhone.trim().toLowerCase();
     const user = await User.findOne({
-      $or: [
-        { email: cleanInput },
-        { phone: emailOrPhone.trim() }
-      ]
+      $or: [{ email: cleanInput }, { phone: emailOrPhone.trim() }],
     });
 
     if (!user) {
-      return res.status(404).json({ success: false, message: 'No account registered with this email or phone number' });
+      return res
+        .status(404)
+        .json({
+          success: false,
+          message: "No account registered with this email or phone number",
+        });
     }
 
     const otp = generate6DigitOtp();
@@ -285,11 +367,25 @@ const forgotPasswordOtp = async (req, res, next) => {
 
     console.log(`🔑 [AUTH OTP] Password Reset OTP for ${user.email}: ${otp}`);
 
+    // SECURED: Send the email and catch any SMTP errors
+    try {
+      await sendOtpEmail(user.email, otp);
+    } catch (emailError) {
+      console.error("SMTP Email Error:", emailError);
+      return res
+        .status(500)
+        .json({
+          success: false,
+          message:
+            "Failed to send password reset email. Please try again later.",
+        });
+    }
+
     res.json({
       success: true,
-      message: `Password reset OTP generated for ${user.email}.`,
+      message: `Password reset OTP generated and sent to ${user.email}.`,
       email: user.email,
-      otp // returned for direct verification
+      // REMOVED: otp property so it does not leak to the frontend
     });
   } catch (error) {
     next(error);
@@ -304,33 +400,63 @@ const resetPasswordOtp = async (req, res, next) => {
     const { email, otp, newPassword } = req.body;
 
     if (!email || !otp || !newPassword) {
-      return res.status(400).json({ success: false, message: 'Please provide email, OTP and new password' });
+      return res
+        .status(400)
+        .json({
+          success: false,
+          message: "Please provide email, OTP and new password",
+        });
     }
 
     if (newPassword.length < 6) {
-      return res.status(400).json({ success: false, message: 'New password must be at least 6 characters' });
+      return res
+        .status(400)
+        .json({
+          success: false,
+          message: "New password must be at least 6 characters",
+        });
     }
 
     const cleanEmail = email.trim().toLowerCase();
-    const user = await User.findOne({ email: cleanEmail }).select('+resetOtp +resetOtpExpires');
+    const user = await User.findOne({ email: cleanEmail }).select(
+      "+resetOtp +resetOtpExpires",
+    );
 
     if (!user) {
-      return res.status(404).json({ success: false, message: 'User not found' });
+      return res
+        .status(404)
+        .json({ success: false, message: "User not found" });
     }
 
     if (!user.resetOtp || !user.resetOtpExpires) {
-      return res.status(400).json({ success: false, message: 'No active password reset request found. Please request a new OTP.' });
+      return res
+        .status(400)
+        .json({
+          success: false,
+          message:
+            "No active password reset request found. Please request a new OTP.",
+        });
     }
 
     if (new Date() > user.resetOtpExpires) {
       user.resetOtp = null;
       user.resetOtpExpires = null;
       await user.save();
-      return res.status(400).json({ success: false, message: 'Reset OTP has expired. Please request a new one.' });
+      return res
+        .status(400)
+        .json({
+          success: false,
+          message: "Reset OTP has expired. Please request a new one.",
+        });
     }
 
     if (String(user.resetOtp).trim() !== String(otp).trim()) {
-      return res.status(400).json({ success: false, message: 'Invalid OTP code. Please check and try again.' });
+      return res
+        .status(400)
+        .json({
+          success: false,
+          message: "Invalid OTP code. Please check and try again.",
+        });
     }
 
     // Set new password
@@ -341,7 +467,7 @@ const resetPasswordOtp = async (req, res, next) => {
 
     res.json({
       success: true,
-      message: 'Password has been reset successfully! You can now log in.'
+      message: "Password has been reset successfully! You can now log in.",
     });
   } catch (error) {
     next(error);
@@ -356,6 +482,5 @@ module.exports = {
   generateSignupOtp,
   verifySignupOtp,
   forgotPasswordOtp,
-  resetPasswordOtp
+  resetPasswordOtp,
 };
-
