@@ -215,17 +215,17 @@ const generateSignupOtp = async (req, res, next) => {
 
     console.log(`🔐 [AUTH OTP] Registration OTP for ${cleanEmail}: ${otp}`);
 
-    // SECURED: Send the email and catch any SMTP errors
+    // Send verification email via Resend
     try {
       await sendOtpEmail(cleanEmail, otp);
     } catch (emailError) {
-      console.error("SMTP Email Error:", emailError);
+      console.error("Email Delivery Error:", emailError.message || emailError);
       return res
         .status(500)
         .json({
           success: false,
           message:
-            "Failed to send OTP email. Please verify your email configuration.",
+            emailError.message || "Failed to send OTP email. Please verify your email configuration.",
         });
     }
 
@@ -367,17 +367,17 @@ const forgotPasswordOtp = async (req, res, next) => {
 
     console.log(`🔑 [AUTH OTP] Password Reset OTP for ${user.email}: ${otp}`);
 
-    // SECURED: Send the email and catch any SMTP errors
+    // Send password reset email via Resend
     try {
       await sendOtpEmail(user.email, otp);
     } catch (emailError) {
-      console.error("SMTP Email Error:", emailError);
+      console.error("Email Delivery Error:", emailError.message || emailError);
       return res
         .status(500)
         .json({
           success: false,
           message:
-            "Failed to send password reset email. Please try again later.",
+            emailError.message || "Failed to send password reset email. Please try again later.",
         });
     }
 
