@@ -94,6 +94,12 @@ export const apiResetPasswordOtp = (email, otp, newPassword) =>
     body: JSON.stringify({ email, otp, newPassword })
   });
 
+export const apiChangePasswordDirect = (emailOrPhone, oldPassword, newPassword) =>
+  request('/auth/change-password', {
+    method: 'POST',
+    body: JSON.stringify({ emailOrPhone, oldPassword, newPassword })
+  });
+
 export const apiLogin = (emailOrPhone, password) =>
   request('/auth/login', {
     method: 'POST',

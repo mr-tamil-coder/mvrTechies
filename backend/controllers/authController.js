@@ -41,11 +41,12 @@ const register = async (req, res, next) => {
     const user = await User.create({
       name,
       phone,
-      email,
+      email: email.toLowerCase(),
       password,
       businessName: businessName || "",
       location: location || "Tamil Nadu, India",
       role: "customer",
+      isVerified: true,
     });
 
     const token = generateToken(user._id);
@@ -474,6 +475,59 @@ const resetPasswordOtp = async (req, res, next) => {
   }
 };
 
+// @desc    Change/Reset password directly using old password (no OTP needed)
+// @route   POST /api/auth/change-password
+// @access  Public
+const changePasswordDirect = async (req, res, next) => {
+  try {
+    const { emailOrPhone, oldPassword, newPassword } = req.body;
+
+    if (!emailOrPhone || !oldPassword || !newPassword) {
+      return res.status(400).json({
+        success: false,
+        message: "Please enter your registered email/phone, old password, and new password.",
+      });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: "New password must be at least 6 characters long.",
+      });
+    }
+
+    const cleanInput = emailOrPhone.trim().toLowerCase();
+    const user = await User.findOne({
+      $or: [{ email: cleanInput }, { phone: emailOrPhone.trim() }],
+    }).select("+password");
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "No account registered with this email or phone number. Contact admin for assistance.",
+      });
+    }
+
+    const isMatch = await user.matchPassword(oldPassword);
+    if (!isMatch) {
+      return res.status(401).json({
+        success: false,
+        message: "Incorrect old password. If you forgot your password, please contact admin at +91 98401 23456.",
+      });
+    }
+
+    user.password = newPassword;
+    await user.save();
+
+    res.json({
+      success: true,
+      message: "Password updated successfully! You can now log in with your new password.",
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   register,
   login,
@@ -483,4 +537,5 @@ module.exports = {
   verifySignupOtp,
   forgotPasswordOtp,
   resetPasswordOtp,
+  changePasswordDirect,
 };

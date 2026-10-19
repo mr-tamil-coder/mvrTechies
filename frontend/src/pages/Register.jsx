@@ -11,10 +11,11 @@ import {
   CheckCircle2,
   ArrowRight,
   ShieldCheck,
-  KeyRound,
-  RefreshCw,
+  Building,
+  HelpCircle,
+  MessageCircle,
 } from "lucide-react";
-import { apiGenerateSignupOtp, apiVerifySignupOtp } from "../services/api";
+import { apiRegister } from "../services/api";
 
 export const Register = () => {
   const navigate = useNavigate();
@@ -29,15 +30,12 @@ export const Register = () => {
     confirmPassword: "",
   });
 
-  // Step 1: 'form', Step 2: 'otp', Step 3: 'success'
-  const [step, setStep] = useState("form");
-  const [otp, setOtp] = useState("");
+  const [isSuccess, setIsSuccess] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [resending, setResending] = useState(false);
 
-  // Step 1: Validate form & request OTP
-  const handleRequestOtp = async (e) => {
+  // Direct Registration (No OTP required)
+  const handleRegister = async (e) => {
     e.preventDefault();
     setError("");
 
@@ -45,7 +43,7 @@ export const Register = () => {
       setError("Please provide your full name.");
       return;
     }
-    if (!formData.phone.trim()) {
+    if (!formData.phone.trim() || formData.phone.trim().length < 8) {
       setError("Please provide a valid contact phone number.");
       return;
     }
@@ -64,79 +62,35 @@ export const Register = () => {
 
     setLoading(true);
     try {
-      await apiGenerateSignupOtp({
-        name: formData.name,
-        phone: formData.phone,
-        email: formData.email,
+      const res = await apiRegister({
+        name: formData.name.trim(),
+        phone: formData.phone.trim(),
+        email: formData.email.trim().toLowerCase(),
         password: formData.password,
-        businessName: formData.businessName || "Independent Wholesale Buyer",
+        businessName: formData.businessName.trim() || "Wholesale Buyer",
         location: "Tamil Nadu, India",
       });
 
-      // Move to OTP step - we no longer set a demo OTP here
-      setStep("otp");
+      if (res?.token) {
+        localStorage.setItem("abch_token", res.token);
+      }
+      if (refreshUsers) refreshUsers();
+
+      setIsSuccess(true);
+      setTimeout(() => {
+        navigate("/login");
+      }, 2500);
     } catch (err) {
       setError(
-        err.message ||
-          "Failed to send verification code. Please check your details.",
+        err.message || "Registration failed. Please check your details and try again."
       );
     } finally {
       setLoading(false);
     }
   };
 
-  // Step 2: Submit OTP to verify and create account
-  const handleVerifyOtp = async (e) => {
-    e.preventDefault();
-    setError("");
-
-    if (!otp.trim() || otp.trim().length !== 6) {
-      setError("Please enter the 6-digit authentication OTP.");
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const res = await apiVerifySignupOtp(formData.email, otp.trim());
-      if (res?.token) {
-        localStorage.setItem("abch_token", res.token);
-      }
-      if (refreshUsers) refreshUsers();
-      setStep("success");
-      setTimeout(() => navigate("/login"), 2500);
-    } catch (err) {
-      setError(err.message || "Invalid or expired OTP. Please try again.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Resend OTP
-  const handleResendOtp = async () => {
-    setError("");
-    setResending(true);
-    try {
-      await apiGenerateSignupOtp({
-        name: formData.name,
-        phone: formData.phone,
-        email: formData.email,
-        password: formData.password,
-        businessName: formData.businessName,
-        location: "Tamil Nadu, India",
-      });
-
-      alert("A fresh 6-digit OTP has been sent to " + formData.email);
-    } catch (err) {
-      setError(err.message || "Failed to resend OTP.");
-    } finally {
-      setResending(false);
-    }
-  };
-
   return (
-    <div
-      style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}
-    >
+    <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
       <Navbar />
 
       <main
@@ -160,7 +114,8 @@ export const Register = () => {
             padding: "40px 36px",
           }}
         >
-          <div style={{ textAlign: "center", marginBottom: "28px" }}>
+          {/* Header */}
+          <div style={{ textAlign: "center", marginBottom: "26px" }}>
             <div
               style={{
                 width: "50px",
@@ -191,14 +146,10 @@ export const Register = () => {
                 marginBottom: "6px",
               }}
             >
-              {step === "otp"
-                ? "Verify Your Identity"
-                : "Create Wholesale Account"}
+              Create Wholesale Account
             </h2>
             <p style={{ fontSize: "14px", color: "var(--ink-soft)" }}>
-              {step === "otp"
-                ? `Enter the 6-digit security code sent to ${formData.email}`
-                : "Join verified buyers for daily market pricing & priority harvest dispatch"}
+              Join verified buyers for daily market pricing & priority harvest dispatch
             </p>
           </div>
 
@@ -211,12 +162,12 @@ export const Register = () => {
             </div>
           )}
 
-          {/* STEP 3: SUCCESS */}
-          {step === "success" && (
+          {/* SUCCESS SCREEN */}
+          {isSuccess ? (
             <div
               style={{
                 backgroundColor: "var(--success-light)",
-                padding: "28px",
+                padding: "32px 24px",
                 borderRadius: "var(--radius-md)",
                 border: "1px solid rgba(22, 163, 74, 0.3)",
                 textAlign: "center",
@@ -226,157 +177,31 @@ export const Register = () => {
                 gap: "12px",
               }}
             >
-              <CheckCircle2 size={44} style={{ color: "var(--success)" }} />
+              <CheckCircle2 size={48} style={{ color: "var(--success)" }} />
               <h3 style={{ fontSize: "20px", color: "#14532D", margin: 0 }}>
-                Email Verified & Account Created!
+                Account Created Successfully!
               </h3>
-              <p
-                style={{ fontSize: "14px", color: "#166534", lineHeight: 1.5 }}
-              >
-                Your wholesale profile has been authenticated. Redirecting you
-                to the login screen...
+              <p style={{ fontSize: "14px", color: "#166534", lineHeight: 1.5 }}>
+                Welcome to ABCH Traders! Your wholesale account is ready. Redirecting you to login...
               </p>
               <Link
                 to="/login"
                 className="btn-primary btn-sm"
-                style={{ marginTop: "8px" }}
+                style={{ marginTop: "10px" }}
               >
                 Go to Login Now <ArrowRight size={14} />
               </Link>
             </div>
-          )}
-
-          {/* STEP 2: OTP VERIFICATION */}
-          {step === "otp" && (
-            <form onSubmit={handleVerifyOtp}>
-              {/* Secure Email Notice */}
-              <div
-                style={{
-                  background: "var(--sage-light)",
-                  border: "1px solid var(--forest)",
-                  padding: "14px 16px",
-                  borderRadius: "var(--radius-md)",
-                  marginBottom: "20px",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 12,
-                }}
-              >
-                <ShieldCheck
-                  size={28}
-                  style={{ color: "var(--forest-deep)", flexShrink: 0 }}
-                />
-                <div style={{ fontSize: "13px", color: "var(--forest-deep)" }}>
-                  We've emailed a 6-digit code to <b>{formData.email}</b>. It
-                  expires in 10 minutes. Check your spam folder if you don't see
-                  it.
-                </div>
-              </div>
-
-              <div className="form-group" style={{ marginBottom: "20px" }}>
-                <label className="form-label" style={{ fontWeight: "700" }}>
-                  Enter 6-Digit OTP *
-                </label>
-                <div style={{ position: "relative" }}>
-                  <input
-                    type="text"
-                    maxLength={6}
-                    autoFocus
-                    className="form-input"
-                    placeholder="Enter 6-digit code"
-                    value={otp}
-                    onChange={(e) =>
-                      setOtp(e.target.value.replace(/[^0-9]/g, ""))
-                    }
-                    style={{
-                      paddingLeft: "44px",
-                      fontSize: "20px",
-                      letterSpacing: "0.2em",
-                      fontWeight: "700",
-                      textAlign: "center",
-                    }}
-                    required
-                  />
-                  <KeyRound
-                    size={18}
-                    style={{
-                      position: "absolute",
-                      left: "14px",
-                      top: "50%",
-                      transform: "translateY(-50%)",
-                      color: "var(--ink-muted)",
-                    }}
-                  />
-                </div>
-              </div>
-
-              <button
-                type="submit"
-                className="btn-primary"
-                disabled={loading}
-                style={{ width: "100%", padding: "13px", fontSize: "15px" }}
-              >
-                {loading
-                  ? "Verifying OTP…"
-                  : "Authenticate & Complete Registration"}{" "}
-                <ArrowRight size={16} />
-              </button>
-
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  marginTop: "20px",
-                  fontSize: "13px",
-                }}
-              >
-                <button
-                  type="button"
-                  onClick={handleResendOtp}
-                  disabled={resending}
-                  style={{
-                    background: "none",
-                    border: "none",
-                    color: "var(--forest)",
-                    fontWeight: "700",
-                    cursor: "pointer",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 4,
-                  }}
-                >
-                  <RefreshCw size={13} />{" "}
-                  {resending ? "Sending…" : "Resend OTP"}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setStep("form")}
-                  style={{
-                    background: "none",
-                    border: "none",
-                    color: "var(--ink-muted)",
-                    textDecoration: "underline",
-                    cursor: "pointer",
-                  }}
-                >
-                  Edit details
-                </button>
-              </div>
-            </form>
-          )}
-
-          {/* STEP 1: INITIAL REGISTRATION FORM */}
-          {step === "form" && (
-            <form onSubmit={handleRequestOtp}>
+          ) : (
+            /* REGISTRATION FORM (DIRECT, NO OTP) */
+            <form onSubmit={handleRegister}>
               <div className="form-group">
                 <label className="form-label">Full Name *</label>
                 <div style={{ position: "relative" }}>
                   <input
                     type="text"
                     className="form-input"
-                    placeholder="e.g. Ananya Sharma"
+                    placeholder="e.g. Ramesh Kumar"
                     value={formData.name}
                     onChange={(e) =>
                       setFormData({ ...formData, name: e.target.value })
@@ -459,17 +284,29 @@ export const Register = () => {
 
               <div className="form-group">
                 <label className="form-label">
-                  Business / Trade Name (Optional)
+                  Business / Store Name (Optional)
                 </label>
-                <input
-                  type="text"
-                  className="form-input"
-                  placeholder="e.g. Organic Eats Kitchen"
-                  value={formData.businessName}
-                  onChange={(e) =>
-                    setFormData({ ...formData, businessName: e.target.value })
-                  }
-                />
+                <div style={{ position: "relative" }}>
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="e.g. Kumar Organic Stores"
+                    value={formData.businessName}
+                    onChange={(e) =>
+                      setFormData({ ...formData, businessName: e.target.value })
+                    }
+                    style={{ paddingLeft: "40px" }}
+                  />
+                  <Building
+                    size={16}
+                    style={{
+                      position: "absolute",
+                      left: "14px",
+                      top: "15px",
+                      color: "var(--ink-muted)",
+                    }}
+                  />
+                </div>
               </div>
 
               <div
@@ -477,7 +314,7 @@ export const Register = () => {
                   display: "grid",
                   gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
                   gap: "16px",
-                  marginBottom: "20px",
+                  marginBottom: "22px",
                 }}
               >
                 <div>
@@ -543,9 +380,7 @@ export const Register = () => {
                 disabled={loading}
                 style={{ width: "100%", padding: "13px", fontSize: "15px" }}
               >
-                {loading
-                  ? "Sending Verification OTP…"
-                  : "Generate OTP & Authenticate"}{" "}
+                {loading ? "Creating Wholesale Account…" : "Create Wholesale Account"}{" "}
                 <ArrowRight size={16} />
               </button>
 
@@ -559,7 +394,7 @@ export const Register = () => {
                 }}
               >
                 <span style={{ color: "var(--ink-soft)" }}>
-                  Already have an account?
+                  Already registered?
                 </span>
                 <Link
                   to="/login"
@@ -571,6 +406,58 @@ export const Register = () => {
                 >
                   Back to Login
                 </Link>
+              </div>
+
+              {/* Admin Support Notice for questions or answers */}
+              <div
+                style={{
+                  marginTop: "24px",
+                  padding: "14px 16px",
+                  backgroundColor: "var(--cream)",
+                  border: "1px solid var(--border)",
+                  borderRadius: "var(--radius-md)",
+                  display: "flex",
+                  alignItems: "flex-start",
+                  gap: "10px",
+                  fontSize: "12px",
+                  color: "var(--ink-soft)",
+                  lineHeight: "1.5",
+                }}
+              >
+                <HelpCircle
+                  size={18}
+                  style={{ color: "var(--forest)", flexShrink: 0, marginTop: "2px" }}
+                />
+                <div>
+                  <strong style={{ color: "var(--forest-deep)" }}>
+                    Need help or have questions?
+                  </strong>
+                  <br />
+                  For inquiries or account assistance, please contact Admin directly:
+                  <div style={{ marginTop: "4px", display: "flex", gap: "12px", flexWrap: "wrap" }}>
+                    <a
+                      href="tel:+919840123456"
+                      style={{ color: "var(--forest)", fontWeight: "600", textDecoration: "none" }}
+                    >
+                      📞 +91 98401 23456
+                    </a>
+                    <a
+                      href="https://wa.me/919840123456?text=Hi%20ABCH%20Traders,%20I%20need%20help%20with%20registration."
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{
+                        color: "#15803D",
+                        fontWeight: "600",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "4px",
+                        textDecoration: "none",
+                      }}
+                    >
+                      <MessageCircle size={13} /> WhatsApp Admin
+                    </a>
+                  </div>
+                </div>
               </div>
             </form>
           )}

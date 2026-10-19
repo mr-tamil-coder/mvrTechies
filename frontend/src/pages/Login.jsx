@@ -3,8 +3,20 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { Navbar } from '../components/Navbar';
 import { Footer } from '../components/Footer';
-import { Lock, Mail, ArrowRight, Shield, KeyRound, ShieldCheck, CheckCircle2, X } from 'lucide-react';
-import { apiForgotPasswordOtp, apiResetPasswordOtp } from '../services/api';
+import {
+  Lock,
+  Mail,
+  ArrowRight,
+  Shield,
+  KeyRound,
+  ShieldCheck,
+  CheckCircle2,
+  X,
+  Phone,
+  HelpCircle,
+  MessageCircle,
+} from 'lucide-react';
+import { apiChangePasswordDirect } from '../services/api';
 
 export const Login = () => {
   const navigate = useNavigate();
@@ -16,14 +28,12 @@ export const Login = () => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // Forgot password modal state
+  // Forgot / Change password modal state (Direct reset with old & new password, no OTP needed)
   const [forgotModal, setForgotModal] = useState(false);
-  const [forgotStep, setForgotStep] = useState('email'); // 'email', 'verify', 'done'
   const [forgotInput, setForgotInput] = useState('');
-  const [forgotOtp, setForgotOtp] = useState('');
+  const [oldPassword, setOldPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmNewPassword, setConfirmNewPassword] = useState('');
-  const [forgotDemoOtp, setForgotDemoOtp] = useState('');
   const [forgotError, setForgotError] = useState('');
   const [forgotSuccess, setForgotSuccess] = useState('');
   const [forgotLoading, setForgotLoading] = useState(false);
@@ -53,55 +63,44 @@ export const Login = () => {
     }
   };
 
-  // Step 1: Request Password Reset OTP
-  const handleRequestForgotOtp = async (e) => {
+  // Direct Password Reset using Old Password and New Password
+  const handleDirectPasswordChange = async (e) => {
     e.preventDefault();
     setForgotError('');
+    setForgotSuccess('');
 
     if (!forgotInput.trim()) {
       setForgotError('Please enter your registered email or phone number.');
       return;
     }
-
-    setForgotLoading(true);
-    try {
-      const res = await apiForgotPasswordOtp(forgotInput.trim());
-      if (res?.otp) {
-        setForgotDemoOtp(res.otp);
-      }
-      setForgotStep('verify');
-    } catch (err) {
-      setForgotError(err.message || 'No registered account found with that email/phone.');
-    } finally {
-      setForgotLoading(false);
-    }
-  };
-
-  // Step 2: Verify OTP and save new password
-  const handleResetPassword = async (e) => {
-    e.preventDefault();
-    setForgotError('');
-
-    if (!forgotOtp.trim() || forgotOtp.trim().length !== 6) {
-      setForgotError('Please enter the 6-digit OTP code.');
+    if (!oldPassword) {
+      setForgotError('Please enter your current (old) password.');
       return;
     }
     if (newPassword.length < 6) {
-      setForgotError('Password must be at least 6 characters long.');
+      setForgotError('New password must be at least 6 characters long.');
       return;
     }
     if (newPassword !== confirmNewPassword) {
-      setForgotError('Passwords do not match. Please re-enter.');
+      setForgotError('New passwords do not match. Please re-enter.');
       return;
     }
 
     setForgotLoading(true);
     try {
-      await apiResetPasswordOtp(forgotInput.trim(), forgotOtp.trim(), newPassword);
-      setForgotStep('done');
-      setForgotSuccess('Your password has been reset successfully! You can now log in.');
+      const res = await apiChangePasswordDirect(
+        forgotInput.trim(),
+        oldPassword,
+        newPassword
+      );
+      setForgotSuccess(res?.message || 'Password updated successfully! You can now log in.');
+      setOldPassword('');
+      setNewPassword('');
+      setConfirmNewPassword('');
     } catch (err) {
-      setForgotError(err.message || 'Invalid or expired OTP code. Please try again.');
+      setForgotError(
+        err.message || 'Failed to update password. Please check your old password or contact admin.'
+      );
     } finally {
       setForgotLoading(false);
     }
@@ -109,14 +108,12 @@ export const Login = () => {
 
   const closeForgotModal = () => {
     setForgotModal(false);
-    setForgotStep('email');
     setForgotInput('');
-    setForgotOtp('');
+    setOldPassword('');
     setNewPassword('');
     setConfirmNewPassword('');
     setForgotError('');
     setForgotSuccess('');
-    setForgotDemoOtp('');
   };
 
   return (
@@ -161,7 +158,7 @@ export const Login = () => {
               Customer Sign In
             </h2>
             <p style={{ fontSize: '14px', color: 'var(--ink-soft)' }}>
-              Sign in to add farm-fresh produce to your cart and place orders
+              Sign in to view wholesale rates, access your cart, and place orders
             </p>
           </div>
 
@@ -184,7 +181,7 @@ export const Login = () => {
                 <input
                   type="text"
                   className="form-input"
-                  placeholder="e.g. rajesh.kumar@greenharvest.in or 9840123456"
+                  placeholder="e.g. buyer@domain.com or 9840123456"
                   value={identifier}
                   onChange={(e) => setIdentifier(e.target.value)}
                   style={{ paddingLeft: '40px' }}
@@ -199,10 +196,14 @@ export const Login = () => {
                 <label className="form-label" style={{ margin: 0 }}>Password</label>
                 <button
                   type="button"
-                  onClick={() => setForgotModal(true)}
+                  onClick={() => {
+                    setForgotError('');
+                    setForgotSuccess('');
+                    setForgotModal(true);
+                  }}
                   style={{ fontSize: '12px', color: 'var(--gold-deep)', fontWeight: '600', background: 'none', border: 'none', cursor: 'pointer' }}
                 >
-                  Forgot Password?
+                  Forgot / Change Password?
                 </button>
               </div>
               <div style={{ position: 'relative' }}>
@@ -234,7 +235,7 @@ export const Login = () => {
           <div style={{ textAlign: 'center', marginTop: '22px', fontSize: '14px', color: 'var(--ink-soft)' }}>
             New to ABCH Traders?{' '}
             <Link to="/register" style={{ color: 'var(--forest)', fontWeight: '700', textDecoration: 'underline' }}>
-              Create an authenticated account
+              Create an account
             </Link>
           </div>
 
@@ -248,17 +249,17 @@ export const Login = () => {
         </div>
       </main>
 
-      {/* Forgot Password OTP Modal */}
+      {/* Forgot / Change Password Modal (Old Password + New Password, or Contact Admin) */}
       {forgotModal && (
         <div className="modal-overlay" onClick={closeForgotModal}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '440px', padding: '32px' }}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '460px', padding: '32px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
               <div>
                 <h3 style={{ fontSize: '20px', color: 'var(--forest-deep)', margin: 0 }}>
-                  Reset Account Password
+                  Reset / Change Password
                 </h3>
                 <span style={{ fontSize: '12px', color: 'var(--ink-muted)' }}>
-                  Authenticate via 6-digit OTP code
+                  Enter your old password & new password to update immediately
                 </span>
               </div>
               <button
@@ -275,11 +276,11 @@ export const Login = () => {
               </div>
             )}
 
-            {/* STEP 3: RESET DONE */}
-            {forgotStep === 'done' && (
-              <div style={{ textAlign: 'center', padding: '12px 0' }}>
-                <CheckCircle2 size={44} style={{ color: 'var(--success)', margin: '0 auto 12px' }} />
-                <h4 style={{ color: 'var(--forest-deep)', margin: '0 0 8px' }}>Password Reset Complete!</h4>
+            {/* SUCCESS STATE */}
+            {forgotSuccess ? (
+              <div style={{ textAlign: 'center', padding: '16px 0' }}>
+                <CheckCircle2 size={46} style={{ color: 'var(--success)', margin: '0 auto 12px' }} />
+                <h4 style={{ color: 'var(--forest-deep)', margin: '0 0 8px' }}>Password Updated Successfully!</h4>
                 <p style={{ fontSize: '13px', color: 'var(--ink-soft)', marginBottom: '20px' }}>
                   {forgotSuccess}
                 </p>
@@ -289,105 +290,13 @@ export const Login = () => {
                   className="btn-primary"
                   style={{ width: '100%' }}
                 >
-                  Proceed to Login
+                  Proceed to Sign In
                 </button>
               </div>
-            )}
-
-            {/* STEP 2: ENTER OTP & NEW PASSWORD */}
-            {forgotStep === 'verify' && (
-              <form onSubmit={handleResetPassword}>
-                {/* OTP Demo display banner */}
-                <div style={{
-                  background: 'var(--sage-light)',
-                  border: '1px solid var(--forest)',
-                  padding: '12px 14px',
-                  borderRadius: 'var(--radius-md)',
-                  marginBottom: '16px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 10
-                }}>
-                  <ShieldCheck size={22} style={{ color: 'var(--forest-deep)' }} />
-                  <div style={{ fontSize: '12px', color: 'var(--forest-deep)' }}>
-                    <div><b>Password Reset OTP Code:</b></div>
-                    <div style={{ fontSize: '16px', fontWeight: '800', letterSpacing: '0.15em' }}>
-                      {forgotDemoOtp || 'Sent to registered account'}
-                    </div>
-                  </div>
-                </div>
-
+            ) : (
+              /* DIRECT PASSWORD UPDATE FORM */
+              <form onSubmit={handleDirectPasswordChange}>
                 <div className="form-group" style={{ marginBottom: '14px' }}>
-                  <label className="form-label" style={{ fontSize: '12px' }}>6-Digit OTP Code *</label>
-                  <div style={{ position: 'relative' }}>
-                    <input
-                      type="text"
-                      maxLength={6}
-                      autoFocus
-                      className="form-input"
-                      placeholder="Enter 6 digits"
-                      value={forgotOtp}
-                      onChange={(e) => setForgotOtp(e.target.value.replace(/[^0-9]/g, ''))}
-                      style={{ paddingLeft: '40px', letterSpacing: '0.15em', fontWeight: '700' }}
-                      required
-                    />
-                    <KeyRound size={16} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'var(--ink-muted)' }} />
-                  </div>
-                </div>
-
-                <div className="form-group" style={{ marginBottom: '14px' }}>
-                  <label className="form-label" style={{ fontSize: '12px' }}>New Password *</label>
-                  <input
-                    type="password"
-                    className="form-input"
-                    placeholder="Min 6 characters"
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    required
-                  />
-                </div>
-
-                <div className="form-group" style={{ marginBottom: '20px' }}>
-                  <label className="form-label" style={{ fontSize: '12px' }}>Confirm New Password *</label>
-                  <input
-                    type="password"
-                    className="form-input"
-                    placeholder="Re-enter new password"
-                    value={confirmNewPassword}
-                    onChange={(e) => setConfirmNewPassword(e.target.value)}
-                    required
-                  />
-                </div>
-
-                <button
-                  type="submit"
-                  className="btn-primary"
-                  disabled={forgotLoading}
-                  style={{ width: '100%', padding: '11px', fontSize: '14px' }}
-                >
-                  {forgotLoading ? 'Updating Password…' : 'Save New Password'}
-                </button>
-
-                <div style={{ textAlign: 'center', marginTop: '12px' }}>
-                  <button
-                    type="button"
-                    onClick={() => setForgotStep('email')}
-                    style={{ background: 'none', border: 'none', color: 'var(--ink-muted)', fontSize: '12px', cursor: 'pointer', textDecoration: 'underline' }}
-                  >
-                    Back to email entry
-                  </button>
-                </div>
-              </form>
-            )}
-
-            {/* STEP 1: ENTER EMAIL OR PHONE */}
-            {forgotStep === 'email' && (
-              <form onSubmit={handleRequestForgotOtp}>
-                <p style={{ fontSize: '13px', color: 'var(--ink-soft)', lineHeight: 1.5, marginBottom: '16px' }}>
-                  Enter your registered wholesale email or phone number to receive a verification OTP code to securely reset your password.
-                </p>
-
-                <div className="form-group" style={{ marginBottom: '18px' }}>
                   <label className="form-label" style={{ fontSize: '12px' }}>Registered Email or Phone *</label>
                   <div style={{ position: 'relative' }}>
                     <input
@@ -396,10 +305,58 @@ export const Login = () => {
                       placeholder="e.g. buyer@domain.com or 98401..."
                       value={forgotInput}
                       onChange={(e) => setForgotInput(e.target.value)}
-                      style={{ paddingLeft: '40px' }}
+                      style={{ paddingLeft: '38px', fontSize: '13px' }}
                       required
                     />
-                    <Mail size={16} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'var(--ink-muted)' }} />
+                    <Mail size={15} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--ink-muted)' }} />
+                  </div>
+                </div>
+
+                <div className="form-group" style={{ marginBottom: '14px' }}>
+                  <label className="form-label" style={{ fontSize: '12px' }}>Current (Old) Password *</label>
+                  <div style={{ position: 'relative' }}>
+                    <input
+                      type="password"
+                      className="form-input"
+                      placeholder="Enter your existing password"
+                      value={oldPassword}
+                      onChange={(e) => setOldPassword(e.target.value)}
+                      style={{ paddingLeft: '38px', fontSize: '13px' }}
+                      required
+                    />
+                    <KeyRound size={15} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--ink-muted)' }} />
+                  </div>
+                </div>
+
+                <div className="form-group" style={{ marginBottom: '14px' }}>
+                  <label className="form-label" style={{ fontSize: '12px' }}>New Password *</label>
+                  <div style={{ position: 'relative' }}>
+                    <input
+                      type="password"
+                      className="form-input"
+                      placeholder="Min 6 characters"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      style={{ paddingLeft: '38px', fontSize: '13px' }}
+                      required
+                    />
+                    <Lock size={15} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--ink-muted)' }} />
+                  </div>
+                </div>
+
+                <div className="form-group" style={{ marginBottom: '18px' }}>
+                  <label className="form-label" style={{ fontSize: '12px' }}>Confirm New Password *</label>
+                  <div style={{ position: 'relative' }}>
+                    <input
+                      type="password"
+                      className="form-input"
+                      placeholder="Re-enter new password"
+                      value={confirmNewPassword}
+                      onChange={(e) => setConfirmNewPassword(e.target.value)}
+                      style={{ paddingLeft: '38px', fontSize: '13px' }}
+                      required
+                    />
+                    <Lock size={15} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--ink-muted)' }} />
                   </div>
                 </div>
 
@@ -409,8 +366,53 @@ export const Login = () => {
                   disabled={forgotLoading}
                   style={{ width: '100%', padding: '11px', fontSize: '14px' }}
                 >
-                  {forgotLoading ? 'Sending OTP…' : 'Send Reset Code'} <ArrowRight size={14} />
+                  {forgotLoading ? 'Updating Password…' : 'Update Password'}
                 </button>
+
+                {/* HELP / CONTACT ADMIN SECTION */}
+                <div
+                  style={{
+                    marginTop: '20px',
+                    padding: '12px 14px',
+                    backgroundColor: 'var(--cream)',
+                    border: '1px solid var(--border)',
+                    borderRadius: 'var(--radius-md)',
+                    fontSize: '12px',
+                    color: 'var(--ink-soft)',
+                    lineHeight: '1.5',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: '700', color: 'var(--forest-deep)', marginBottom: '4px' }}>
+                    <HelpCircle size={15} />
+                    Forgot your old password?
+                  </div>
+                  <p style={{ margin: '0 0 8px', fontSize: '11.5px' }}>
+                    If you cannot remember your old password, please contact the Admin directly to verify your account and reset your access:
+                  </p>
+                  <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                    <a
+                      href="tel:+919840123456"
+                      style={{ color: 'var(--forest)', fontWeight: '700', textDecoration: 'none' }}
+                    >
+                      📞 +91 98401 23456
+                    </a>
+                    <a
+                      href="https://wa.me/919840123456?text=Hi%20ABCH%20Traders,%20I%20forgot%20my%20account%20password.%20Please%20help%20me%20reset%20it."
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{
+                        color: '#15803D',
+                        fontWeight: '700',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '3px',
+                        textDecoration: 'none',
+                      }}
+                    >
+                      <MessageCircle size={12} /> WhatsApp Support
+                    </a>
+                  </div>
+                </div>
               </form>
             )}
 
@@ -422,4 +424,3 @@ export const Login = () => {
     </div>
   );
 };
-

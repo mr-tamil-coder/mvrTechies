@@ -8,7 +8,8 @@ const {
   generateSignupOtp,
   verifySignupOtp,
   forgotPasswordOtp,
-  resetPasswordOtp
+  resetPasswordOtp,
+  changePasswordDirect
 } = require('../controllers/authController');
 const { protect } = require('../middleware/authMiddleware');
 
@@ -18,11 +19,12 @@ router.post('/login', login);
 router.get('/me', protect, getProfile);
 router.get('/users', getAllUsers);
 
-// OTP Verification for Signup
+// Direct Password Change (Old Password + New Password)
+router.post('/change-password', changePasswordDirect);
+
+// Legacy/Optional OTP routes
 router.post('/generate-signup-otp', generateSignupOtp);
 router.post('/verify-signup-otp', verifySignupOtp);
-
-// OTP for Forgot / Reset Password
 router.post('/forgot-password-otp', forgotPasswordOtp);
 router.post('/reset-password-otp', resetPasswordOtp);
 

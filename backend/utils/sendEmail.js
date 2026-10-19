@@ -29,7 +29,7 @@ const sendOtpEmail = async (to, otp) => {
   // Resend sender:
   // Use verified domain sender if configured (e.g. "ABCH Traders <orders@yourdomain.com>")
   // Default to Resend testing sender: "ABCH Traders <onboarding@resend.dev>"
-  const fromEmail = process.env.RESEND_FROM || "ABCH Traders <onboarding@resend.dev>";
+  const fromEmail = 'ABCH Traders <no-reply@abchtraders.com>'
 
   const { data, error } = await resend.emails.send({
     from: fromEmail,
